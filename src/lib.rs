@@ -112,6 +112,7 @@ impl Event {
     /// This method emits a `SeqCst` fence before notifying listeners.
     #[inline]
     pub fn notify(&self, n: usize) {
+        // Make sure the notification comes after whatever triggered it.
         full_fence();
         self.notify_relaxed(n);
     }
@@ -127,6 +128,8 @@ impl Event {
     #[inline]
     pub fn notify_relaxed(&self, n: usize) {
         if let Some(inner) = self.try_inner() {
+            // Notify if there is at least one unnotified listener and the number of notified
+            // listeners is less than `n`.
             if inner.notified.load(Ordering::Acquire) < n {
                 inner.lock().notify(n);
             }
@@ -319,7 +322,7 @@ impl EventListener {
             Some(entry) => entry,
         };
 
-        // Set this lisntener's state to `Waiting`
+        // Set this listener's state to `Waiting`
         {
             let mut list = self.inner.lock();
             let e = unsafe { entry.as_ref() };
@@ -658,7 +661,7 @@ impl List {
     #[cold]
     fn notify_additional(&mut self, mut n: usize) {
         while n > 0 {
-
+            n -= 1;
             // Notify the first unnotified entry
             match self.start {
                 None => break,

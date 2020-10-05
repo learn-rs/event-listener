@@ -6,6 +6,7 @@ use std::cell::UnsafeCell;
 use std::ops::{Deref, DerefMut};
 use std::time::{Duration, Instant};
 use std::sync::Arc;
+use std::sync::atomic::Ordering::Acquire;
 
 /// A simple mutex
 struct Mutex<T> {
@@ -148,14 +149,12 @@ fn main() {
         std::thread::spawn(move || {
             let mut counter = counter.lock();
             *counter += 1;
-            println!("{}", *counter);
             if *counter == N {
                 tx.send(()).unwrap();
             }
+            // counter.0.locked.swap(false, Acquire);
         });
     }
-
-    println!("{:?}", counter.data.get());
     // Wait until the last thread increments the counter
     rx.recv().unwrap();
 
